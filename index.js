@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 "use strict"
 
 /* Imports */
@@ -29,10 +30,11 @@ const facebookStickers = { //packid -> sticker id
 	}
 }
 
+const prompt = require("prompt")
+
 /* Initialisation */
 if (process.argv.length < 3) {
 	//	User didn't store credentials in JSON, make them manually enter credentials
-	const prompt = require("prompt")
 	console.log("Enter your Facebook credentials - your password will not be visible as you type it in")
 	prompt.start()
 
@@ -43,12 +45,15 @@ if (process.argv.length < 3) {
 		name: "password",
 		hidden: true,
 		conform: () => true
-	}], (err, result) => { authenticate(result) })
+	}], (err, result) => {
+		authenticate(result)
+	})
 
 } else {
 	const fs = require("fs")
 	fs.readFile(process.argv[2], (err, data) => {
-		if (err) return console.log(err)
+		if (err)
+			return console.log(err)
 
 		authenticate(JSON.parse(data))
 	})
@@ -78,7 +83,8 @@ function getUser(userID) {
 	const _user = user.friendsList.find(f => f.userID === userID)
 	if (!_user) {
 		api.getUserInfo(userID, (err, data) => {
-			if (err) return console.error(err)
+			if (err)
+				return console.error(err)
 
 			data[userID].userID = Object.keys(data)[0]
 			user.friendsList.push(data[userID])
@@ -105,7 +111,7 @@ function handleMessage(message) {
 	if (message.participantNames && message.participantNames.length > 1)
 		sender = `'${sender}' (${message.senderName})`
 
-	process.stderr.write("\x07")	// Terminal notification
+	process.stderr.write("\x07") // Terminal notification
 
 	let messageBody = null
 
@@ -132,9 +138,9 @@ function handleMessage(message) {
 
 /* command handlers */
 const commands = {
-  /**
-   * Sends message to given user
-   */
+	/**
+	 * Sends message to given user
+	 */
 	[commandEnum.MESSAGE](rawCommand) {
 		const quoteReg = /(".*?")(.*)/g
 		// to get length of first arg
@@ -166,15 +172,16 @@ const commands = {
 		}
 
 		api.sendMessage(message, receiver.userID, err => {
-			if (err) return console.error("ERROR:", err.error)
+			if (err)
+				return console.error("ERROR:", err.error)
 
 			console.log(`Sent message to ${receiver.fullName}`)
 		})
 	},
 
-  /**
-   * Replies with a given message to the last received thread.
-   */
+	/**
+	 * Replies with a given message to the last received thread.
+	 */
 	[commandEnum.REPLY](rawCommand) {
 		if (lastThread === null) {
 			return console.warn("Error - can't reply to messages you haven't yet received! You need to receive a message before using `reply`!")
@@ -186,30 +193,32 @@ const commands = {
 		// var body = rawCommand.substring(commandEnum.REPLY.length).trim()
 
 		api.sendMessage(body, lastThread, err => {
-			if (err) return console.error("ERROR:", err.error)
+			if (err)
+				return console.error("ERROR:", err.error)
 
 			console.log("✓")
 		})
 	},
 
-  /**
-   * Displays users friend list
-   */
+	/**
+	 * Displays users friend list
+	 */
 	[commandEnum.CONTACTS]() {
 		if (user.friendsList.length === 0) {
 			console.log("You have no friends :cry:")
 		}
-		user.friendsList.forEach(f => { console.log(f.fullName) })
+		user.friendsList.forEach(f => {
+			console.log(f.fullName)
+		})
 	},
 
-  /**
-   * Displays usage instructions
-   */
+	/**
+	 * Displays usage instructions
+	 */
 	[commandEnum.HELP]() {
 		console.log("Commands:\n" +
 			"\tmessage \"[user]\" [message]\n" +
-			"\tcontacts\n"
-		)
+			"\tcontacts\n")
 	}
 }
 
@@ -218,7 +227,8 @@ const commands = {
  */
 function processCommand(rawCommand) {
 	// skip if command is only spaces
-	if (rawCommand.trim().length === 0) return
+	if (rawCommand.trim().length === 0)
+		return
 
 	const args = rawCommand.replace("\n", "").split(" ")
 	const command = commandMap[args[0]] || args[0]
@@ -233,10 +243,29 @@ function processCommand(rawCommand) {
 
 function authenticate(credentials) {
 	facebook(credentials, (err, fbApi) => {
-		if (err) return
+		if (err) {
+			switch (err.error) {
+			case "login-approval":
+				console.log("Enter code > ")
+				//prompt.start()
+
+				prompt.get([{
+					name: "2FA",
+					required: true
+				}], (error, result) => {
+					err.continue(result)
+				})
+				break
+			default:
+				console.error(err.error)
+			}
+			return
+		}
 
 		api = fbApi // assign to global variable
-		api.setOptions({ logLevel: "silent" })
+		api.setOptions({
+			logLevel: "silent"
+		})
 
 		console.info(`Logged in as ${credentials.email}`)
 
@@ -257,6 +286,5 @@ function authenticate(credentials) {
 				}
 			})
 		})
-
 	})
 }
